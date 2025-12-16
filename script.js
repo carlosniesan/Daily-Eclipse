@@ -593,7 +593,128 @@ function loadTheme() {
     }
 }
 
-// Generar puzzle aleatorio con solución
+// Contar el número de soluciones de un puzzle
+function countSolutions(puzzleGrid, puzzleConstraints, puzzleLocked) {
+    let solutionCount = 0;
+    const testGrid = puzzleGrid.map(row => [...row]);
+    
+    function isValidPlacement(row, col, value) {
+        testGrid[row][col] = value;
+        
+        // Verificar conteos en la fila
+        let rowSuns = 0, rowMoons = 0, rowEmpty = 0;
+        for (let c = 0; c < GRID_SIZE; c++) {
+            if (testGrid[row][c] === STATES.SUN) rowSuns++;
+            if (testGrid[row][c] === STATES.MOON) rowMoons++;
+            if (testGrid[row][c] === STATES.EMPTY) rowEmpty++;
+        }
+        if (rowSuns > REQUIRED_COUNT || rowMoons > REQUIRED_COUNT) {
+            testGrid[row][col] = STATES.EMPTY;
+            return false;
+        }
+        
+        // Verificar conteos en la columna
+        let colSuns = 0, colMoons = 0, colEmpty = 0;
+        for (let r = 0; r < GRID_SIZE; r++) {
+            if (testGrid[r][col] === STATES.SUN) colSuns++;
+            if (testGrid[r][col] === STATES.MOON) colMoons++;
+            if (testGrid[r][col] === STATES.EMPTY) colEmpty++;
+        }
+        if (colSuns > REQUIRED_COUNT || colMoons > REQUIRED_COUNT) {
+            testGrid[row][col] = STATES.EMPTY;
+            return false;
+        }
+        
+        // Verificar consecutivos horizontales
+        if (col >= 2 && testGrid[row][col-1] === value && testGrid[row][col-2] === value) {
+            testGrid[row][col] = STATES.EMPTY;
+            return false;
+        }
+        if (col >= 1 && testGrid[row][col-1] === value && col < GRID_SIZE - 1 && testGrid[row][col+1] === value) {
+            testGrid[row][col] = STATES.EMPTY;
+            return false;
+        }
+        if (col <= GRID_SIZE - 3 && testGrid[row][col+1] === value && testGrid[row][col+2] === value) {
+            testGrid[row][col] = STATES.EMPTY;
+            return false;
+        }
+        
+        // Verificar consecutivos verticales
+        if (row >= 2 && testGrid[row-1][col] === value && testGrid[row-2][col] === value) {
+            testGrid[row][col] = STATES.EMPTY;
+            return false;
+        }
+        if (row >= 1 && testGrid[row-1][col] === value && row < GRID_SIZE - 1 && testGrid[row+1][col] === value) {
+            testGrid[row][col] = STATES.EMPTY;
+            return false;
+        }
+        if (row <= GRID_SIZE - 3 && testGrid[row+1][col] === value && testGrid[row+2][col] === value) {
+            testGrid[row][col] = STATES.EMPTY;
+            return false;
+        }
+        
+        // Verificar restricciones
+        for (const c of puzzleConstraints) {
+            if ((c.row1 === row && c.col1 === col) || (c.row2 === row && c.col2 === col)) {
+                const val1 = testGrid[c.row1][c.col1];
+                const val2 = testGrid[c.row2][c.col2];
+                
+                if (val1 !== STATES.EMPTY && val2 !== STATES.EMPTY) {
+                    if (c.type === CONSTRAINT_TYPES.EQUAL && val1 !== val2) {
+                        testGrid[row][col] = STATES.EMPTY;
+                        return false;
+                    }
+                    if (c.type === CONSTRAINT_TYPES.DIFFERENT && val1 === val2) {
+                        testGrid[row][col] = STATES.EMPTY;
+                        return false;
+                    }
+                }
+            }
+        }
+        
+        testGrid[row][col] = STATES.EMPTY;
+        return true;
+    }
+    
+    function solve(pos) {
+        // Si encontramos más de 1 solución, podemos parar
+        if (solutionCount > 1) return;
+        
+        if (pos === GRID_SIZE * GRID_SIZE) {
+            solutionCount++;
+            return;
+        }
+        
+        const row = Math.floor(pos / GRID_SIZE);
+        const col = pos % GRID_SIZE;
+        
+        // Si la celda está bloqueada, continuar con la siguiente
+        if (puzzleLocked.has(`${row}-${col}`)) {
+            solve(pos + 1);
+            return;
+        }
+        
+        // Si la celda ya tiene un valor (de celdas bloqueadas), continuar
+        if (testGrid[row][col] !== STATES.EMPTY) {
+            solve(pos + 1);
+            return;
+        }
+        
+        // Probar SOL y LUNA
+        for (const value of [STATES.SUN, STATES.MOON]) {
+            if (isValidPlacement(row, col, value)) {
+                testGrid[row][col] = value;
+                solve(pos + 1);
+                testGrid[row][col] = STATES.EMPTY;
+            }
+        }
+    }
+    
+    solve(0);
+    return solutionCount;
+}
+
+// Generar puzzle aleatorio con solución única
 function generateRandomPuzzle() {
     // Primero, generar una solución válida
     const solution = generateValidSolution();
@@ -605,9 +726,9 @@ function generateRandomPuzzle() {
         }
     }
     
-    // Generar restricciones (entre 3 y 6 para no saturar)
-    const numConstraints = Math.floor(Math.random() * 4) + 3; // 3-6 restricciones
+    // Empezar con pocas restricciones y celdas bloqueadas
     constraints = [];
+    lockedCells.clear();
     
     // Crear lista de posibles restricciones interiores
     const possibleConstraints = [];
@@ -638,47 +759,13 @@ function generateRandomPuzzle() {
         }
     }
     
-    // Mezclar y seleccionar restricciones sin solapamiento
-    const usedPositions = new Set();
-    
-    while (constraints.length < numConstraints && possibleConstraints.length > 0) {
-        const randomIndex = Math.floor(Math.random() * possibleConstraints.length);
-        const constraint = possibleConstraints.splice(randomIndex, 1)[0];
-        
-        // Crear identificador único para esta posición
-        const posId = `${constraint.row1}-${constraint.col1}-${constraint.row2}-${constraint.col2}`;
-        
-        // Verificar que no esté muy cerca de otra restricción
-        const tooClose = Array.from(usedPositions).some(pos => {
-            const [r1, c1, r2, c2] = pos.split('-').map(Number);
-            // Verificar si comparten alguna celda
-            return (constraint.row1 === r1 && constraint.col1 === c1) ||
-                   (constraint.row1 === r2 && constraint.col1 === c2) ||
-                   (constraint.row2 === r1 && constraint.col2 === c1) ||
-                   (constraint.row2 === r2 && constraint.col2 === c2);
-        });
-        
-        if (!tooClose) {
-            const val1 = solution[constraint.row1][constraint.col1];
-            const val2 = solution[constraint.row2][constraint.col2];
-            const type = val1 === val2 ? CONSTRAINT_TYPES.EQUAL : CONSTRAINT_TYPES.DIFFERENT;
-            
-            constraints.push({
-                row1: constraint.row1,
-                col1: constraint.col1,
-                row2: constraint.row2,
-                col2: constraint.col2,
-                type: type
-            });
-            
-            usedPositions.add(posId);
-        }
+    // Mezclar las restricciones posibles
+    for (let i = possibleConstraints.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [possibleConstraints[i], possibleConstraints[j]] = [possibleConstraints[j], possibleConstraints[i]];
     }
     
-    // Bloquear algunas celdas iniciales (entre 0 y 12)
-    const numLocked = Math.floor(Math.random() * 13);
-    lockedCells.clear();
-    
+    // Crear lista de celdas disponibles para bloquear
     const availableCells = [];
     for (let row = 0; row < GRID_SIZE; row++) {
         for (let col = 0; col < GRID_SIZE; col++) {
@@ -686,14 +773,72 @@ function generateRandomPuzzle() {
         }
     }
     
-    // Mezclar y seleccionar
-    for (let i = 0; i < numLocked && availableCells.length > 0; i++) {
-        const randomIndex = Math.floor(Math.random() * availableCells.length);
-        const cell = availableCells.splice(randomIndex, 1)[0];
-        lockedCells.add(`${cell.row}-${cell.col}`);
+    // Mezclar las celdas
+    for (let i = availableCells.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [availableCells[i], availableCells[j]] = [availableCells[j], availableCells[i]];
     }
     
-    // Limpiar celdas no bloqueadas
+    // Añadir restricciones y celdas bloqueadas hasta tener solución única
+    let iterations = 0;
+    const maxIterations = 100;
+    
+    while (iterations < maxIterations) {
+        // Crear grid de prueba
+        const testGrid = Array(GRID_SIZE).fill().map(() => Array(GRID_SIZE).fill(STATES.EMPTY));
+        for (const cellKey of lockedCells) {
+            const [row, col] = cellKey.split('-').map(Number);
+            testGrid[row][col] = solution[row][col];
+        }
+        
+        const numSolutions = countSolutions(testGrid, constraints, lockedCells);
+        
+        if (numSolutions === 1) {
+            // ¡Solución única encontrada!
+            break;
+        }
+        
+        // Alternar entre añadir restricciones y celdas bloqueadas
+        if (iterations % 2 === 0 && possibleConstraints.length > 0) {
+            // Añadir una restricción
+            const constraint = possibleConstraints.pop();
+            
+            // Verificar que no se solape con restricciones existentes
+            const overlaps = constraints.some(c => {
+                return (constraint.row1 === c.row1 && constraint.col1 === c.col1) ||
+                       (constraint.row1 === c.row2 && constraint.col1 === c.col2) ||
+                       (constraint.row2 === c.row1 && constraint.col2 === c.col1) ||
+                       (constraint.row2 === c.row2 && constraint.col2 === c.col2);
+            });
+            
+            if (!overlaps) {
+                const val1 = solution[constraint.row1][constraint.col1];
+                const val2 = solution[constraint.row2][constraint.col2];
+                const type = val1 === val2 ? CONSTRAINT_TYPES.EQUAL : CONSTRAINT_TYPES.DIFFERENT;
+                
+                constraints.push({
+                    row1: constraint.row1,
+                    col1: constraint.col1,
+                    row2: constraint.row2,
+                    col2: constraint.col2,
+                    type: type
+                });
+            }
+        } else if (availableCells.length > 0) {
+            // Añadir una celda bloqueada
+            const cell = availableCells.pop();
+            lockedCells.add(`${cell.row}-${cell.col}`);
+        }
+        
+        iterations++;
+    }
+    
+    // Si no encontramos solución única en las iteraciones, al menos asegurar un mínimo
+    if (iterations >= maxIterations) {
+        console.warn('No se pudo garantizar solución única en el límite de iteraciones');
+    }
+    
+    // Limpiar celdas no bloqueadas en el grid
     for (let row = 0; row < GRID_SIZE; row++) {
         for (let col = 0; col < GRID_SIZE; col++) {
             const cellKey = `${row}-${col}`;
