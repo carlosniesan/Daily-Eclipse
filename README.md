@@ -1,4 +1,4 @@
-# Daily-Eclipse 🌞🌙
+# Eclipse 🌞🌙
 
 Un juego de lógica basado en un grid 6x6 donde debes colocar soles y lunas siguiendo reglas específicas.
 
@@ -24,7 +24,7 @@ Un juego de lógica basado en un grid 6x6 donde debes colocar soles y lunas sigu
 
 ## 🚀 Demo en Vivo
 
-Juega ahora en: [https://carlosnombredeusuario.github.io/Daily-Eclipse](https://carlosnombredeusuario.github.io/Daily-Eclipse)
+Juega ahora en: [https://carlosniesan.github.io/Eclipse](https://carlosniesan.github.io/Eclipse)
 
 ## 🛠️ Tecnologías
 
@@ -36,8 +36,8 @@ Juega ahora en: [https://carlosnombredeusuario.github.io/Daily-Eclipse](https://
 ## 📦 Instalación Local
 
 ```bash
-git clone https://github.com/carlosnombredeusuario/Daily-Eclipse.git
-cd Daily-Eclipse
+git clone https://github.com/carlosniesan/Eclipse.git
+cd Eclipse
 # Abre index.html en tu navegador
 ```
 
