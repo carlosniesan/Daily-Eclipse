@@ -558,6 +558,8 @@ document.getElementById('infoModal').addEventListener('click', (e) => {
 // Control del modal de victoria
 function showVictoryModal() {
     isGameCompleted = true;
+    // Incrementar el contador de juegos completados (guardado en cookie)
+    incrementCompletedCount();
     const modal = document.getElementById('victoryModal');
     modal.classList.add('show');
     
@@ -609,6 +611,36 @@ function loadTheme() {
         const icon = themeBtn.querySelector('.icon');
         icon.textContent = currentTheme === 'dark' ? '☀️' : '🌙';
     }
+}
+
+// --- Contador usando localStorage ---
+function setCompletedCount(value) {
+    try {
+        localStorage.setItem('completedGames', String(value));
+    } catch (e) {
+        // Si el almacenamiento falla (modo privado, cuota), ignorar silenciosamente
+        console.warn('No se pudo guardar completedGames en localStorage', e);
+    }
+}
+
+function getCompletedCount() {
+    try {
+        return parseInt(localStorage.getItem('completedGames') || '0', 10) || 0;
+    } catch (e) {
+        return 0;
+    }
+}
+
+function updateCompletedCountUI() {
+    const el = document.getElementById('completedCount');
+    if (!el) return;
+    el.textContent = getCompletedCount();
+}
+
+function incrementCompletedCount() {
+    const next = getCompletedCount() + 1;
+    setCompletedCount(next);
+    updateCompletedCountUI();
 }
 
 // Contar el número de soluciones de un puzzle
@@ -982,6 +1014,7 @@ function generateValidSolution() {
 window.addEventListener('DOMContentLoaded', () => {
     loadTheme();
     init();
+    updateCompletedCountUI();
     
     // Recalcular posiciones de restricciones al cambiar el tamaño de ventana
     let resizeTimeout;

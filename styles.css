@@ -125,6 +125,25 @@ h1 {
     animation: fadeIn 0.8s ease 0.4s both;
 }
 
+.completed-counter {
+    display: inline-flex;
+    align-items: center;
+    margin-left: 12px;
+    font-weight: 700;
+    color: var(--text-secondary);
+    background: var(--grid-bg);
+    padding: 8px 12px;
+    border-radius: 12px;
+    box-shadow: 0 2px 6px var(--shadow-light);
+    font-size: 0.95em;
+}
+
+.completed-counter #completedCount {
+    margin-left: 8px;
+    color: var(--text-primary);
+    font-weight: 800;
+}
+
 .icon-btn {
     width: 50px;
     height: 50px;
